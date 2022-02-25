@@ -25,8 +25,8 @@ class NetScanner:
                     connection = \
                         self.connections_graph.get_connection(packet[IP].src,
                                                               packet[IP].dst)
-                    http_stream = HTTPHandler.parse_http_stream(payload)
-                    for content_type, content_len, http_content in http_stream:
+                    http_stream = HTTPHandler.parse_http_stream(payload, content_filter=b"json")
+                    for content_type, http_content in http_stream:
                         if content_type and b"json" in content_type:
                             try:
                                 json_dict = json.loads(http_content)
@@ -48,54 +48,35 @@ class HTTPHandler:
     """Parser for HTTP application layer."""
     HEADER_DELIMITER = b"\r\n\r\n"
     CONTENT_DELIMITER = b"\r\n"
-    CONTENT_LEN = b'Content-Length:'
-    CONTENT_TYPE = b'Content-Type:'
-    ENCODING = b'Transfer-Encoding:'
+    CONTENT_LEN = b'content-length:'
+    CONTENT_TYPE = b'content-type:'
+    ENCODING = b'transfer-encoding:'
 
     @classmethod
-    def parse_http_stream(cls, packet):
+    def parse_http_stream(cls, packet, content_filter):
         while packet and b"HTTP" in packet:
-            parse = cls.parse_http_packet(packet)
-            if not parse:
-                break
-            content_type, content, tail = parse
-            yield content_type, content
-            packet = tail
+            if cls.HEADER_DELIMITER not in packet:
+                logger.error("HTTP packet does not contain header delimiter")
+                return
 
-    @classmethod
-    def parse_http_packet(cls, packet):
-        """Parse http header and return payload."""
-        if cls.HEADER_DELIMITER not in packet:
-            logger.error("HTTP packet does not contain header delimiter")
-            return None
-
-        else:
-            header, tail = packet.split(cls.HEADER_DELIMITER)
+            header, tail = packet.split(cls.HEADER_DELIMITER, maxsplit=1)
             content_len, content_type, encoding = cls._parse_header(header)
 
             if content_len:
                 content = tail[:content_len]
-                tail = tail[content_len:]
+                packet = tail[content_len:]
+                if content_filter and content_type and content_filter in content_type:
+                    yield content_type, content
 
-            elif b"chunked" in encoding:
-                # Todo: yield from
-                cls._parse_chunked_transfer_stream(tail)
+            elif encoding and b"chunked" in encoding:
+                packet = yield from cls._parse_chunked_transfer_stream(tail, content_type)
 
             else:
-                # Content length not specified in http header.
-                logger.error("Packet with no content length and not chunked.")
-                return None
-                # header, tail = packet.split(cls.HEADER_DELIMITER, maxsplit=1)
-                # sections = tail.split(cls.CONTENT_DELIMITER)
-                # max_section_len, section_index = \
-                #     max([(len(sec), i) for i, sec in enumerate(sections)])
-                # content = sections[section_index]
-                # tail = None
-
-            return content_type, content, tail
+                # Empty http packet.
+                _, packet = packet.split(cls.HEADER_DELIMITER, maxsplit=1)
 
     @classmethod
-    def _parse_chunked_transfer_stream(cls, stream):
+    def _parse_chunked_transfer_stream(cls, stream, content_type):
         """Parse of chunked transfer encoding stream."""
         while stream:
             # Parse chunk size
@@ -107,13 +88,17 @@ class HTTPHandler:
             chunk_size += 2  # chunk ends with carriage return
             content = stream[:chunk_size]
             stream = stream[chunk_size:]
-            yield content
+            yield content_type, content
+
+        return None
 
     @classmethod
     def _parse_header(cls, header):
         content_len = None
         content_type = None
+        encoding = None
         for line in header.splitlines():
+            line = line.lower()
             if line.startswith(cls.CONTENT_LEN):
                 content_len = int(line[len(cls.CONTENT_LEN):].strip())
             elif line.startswith(cls.CONTENT_TYPE):
