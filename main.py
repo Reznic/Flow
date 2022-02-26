@@ -11,7 +11,8 @@ def main():
     for pkt_num, packet in enumerate(packets):
         scanner.parse_packet(packet, pkt_num)
 
-    scanner.connections_graph.print_table()
+    scanner.flow_graph.print_table()
+    scanner.flow_graph.plot_graph()
 
 
 if __name__ == "__main__":
