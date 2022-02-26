@@ -1,3 +1,4 @@
+"""Main module - try NetScanner on example pcap."""
 from os import mkdir
 from os.path import exists
 from scapy.all import rdpcap

@@ -1,3 +1,4 @@
+"""Manage and representation of network flow graph."""
 import pandas as pd
 import networkx as nx
 from functools import lru_cache

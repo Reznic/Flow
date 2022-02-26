@@ -1,4 +1,6 @@
-class HTTPHandler:
+"""Parsing of HTTP protocol"""
+
+class HttpHandler:
     """Parser for HTTP application layer."""
     HEADER_DELIMITER = b"\r\n\r\n"
     CONTENT_DELIMITER = b"\r\n"
@@ -10,8 +12,8 @@ class HTTPHandler:
     def parse_http_stream(cls, packet, content_filter):
         while packet and b"HTTP" in packet:
             if cls.HEADER_DELIMITER not in packet:
-                logger.error("HTTP packet does not contain header delimiter")
-                return
+                raise HttpParseError("HTTP packet does not "
+                                     "contain header delimiter")
 
             header, tail = packet.split(cls.HEADER_DELIMITER, maxsplit=1)
             content_len, content_type, encoding = cls._parse_header(header)
@@ -62,3 +64,5 @@ class HTTPHandler:
         return content_len, content_type, encoding
 
 
+class HttpParseError(BaseException):
+    pass

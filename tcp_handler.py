@@ -1,3 +1,4 @@
+"""Parsing of TCP layer"""
 from time import time
 from scapy.all import *
 from blist import sorteddict
@@ -5,7 +6,8 @@ from blist import sorteddict
 
 class TCPHandler:
     """Handle tcp packets and manage tcp sessions parsing."""
-    TCP_FIN = 0x11  # Fin-Ack flag
+    TCP_FIN = 0x1
+    TCP_FINACK = 0x11
 
     def __init__(self, session_timeout):
         self.session_streams = {}
@@ -19,18 +21,20 @@ class TCPHandler:
             str: session data  -  If last tcp packet in stream (FIN-ACK).
             None: if tcp packet is not the last in the stream.
         """
+        # Check and remove expired sessions data
         self.session_timeouts.periodic_check()
-        session_key = self._generate_session_key(packet)
 
-        if packet[TCP].fields["flags"] == self.TCP_FIN:
+        session_key = self._generate_session_key(packet)
+        tcp_flag = packet[TCP].fields["flags"]
+
+        if tcp_flag == self.TCP_FINACK or tcp_flag == self.TCP_FIN:
             # TCP FIN received - Close finished session and return stream data
             if session_key in self.session_streams:
                 stream = self.session_streams[session_key]
                 self._close_session(session_key)
                 self.session_timeouts.remove_timeout(session_key)
-                return stream
-            else:
-                return None
+                if stream:
+                    return stream
         else:
             if session_key in self.session_streams:
                 # Session already opened. aggregate payload
@@ -42,8 +46,8 @@ class TCPHandler:
 
             self.session_timeouts.reset_timeout(session_key)
 
-            # packet is in the middle of a session. nothing to return yet.
-            return None
+        # packet is in the middle of a session. nothing to return yet.
+        return None
 
     def _get_tcp_payload(self, packet):
         return bytearray(bytes(packet[TCP].payload))
@@ -58,7 +62,7 @@ class TCPHandler:
     def _close_session(self, session_key):
         """Clean session stream"""
         if session_key in self.session_streams:
-            self.session_streams.pop(session_key)
+            del self.session_streams[session_key]
 
 
 class Timeouts:
