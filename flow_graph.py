@@ -1,5 +1,6 @@
-from functools import lru_cache
+import pandas as pd
 import networkx as nx
+from functools import lru_cache
 from pyvis.network import Network
 
 
@@ -14,9 +15,6 @@ class FlowGraph:
         self.connections[key] = con
         return con
 
-    def print_table(self):
-        print(list(self.connections.values()))
-
     def _get_adjacency_dict(self):
         network = dict()
         for connection in self.connections.values():
@@ -28,12 +26,27 @@ class FlowGraph:
 
         return network
 
-    def plot_graph(self):
+    def plot_graph(self, out_path):
         """Create an HTML file with plotting of the flow graph."""
         net = Network(notebook=True)
         network_dict = self._get_adjacency_dict()
         net.from_nx(nx.from_dict_of_lists(network_dict))
-        net.show("Flow Graph.html")
+        net.show(out_path)
+
+    def plot_table(self, out_path):
+        """Create an HTML file with table of flow connections and keys."""
+        connections = self.connections.values()
+        sources = [connection.src.name for connection in connections]
+        dests = [connection.dst.name for connection in connections]
+        keys = [", ".join(connection.keys) for connection in connections]
+        df = pd.DataFrame({"Source": sources, "Dest": dests, "Key names": keys})
+        html = df.to_html()
+        with open(out_path, "wb") as table_file:
+            table_file.write(html.encode())
+
+    def print_table(self):
+        """Print flow table textually."""
+        print(list(self.connections.values()))
 
 
 class Connection:
