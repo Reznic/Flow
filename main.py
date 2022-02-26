@@ -1,4 +1,4 @@
-from scapy.all import *
+from scapy.all import rdpcap
 from net_scanner import NetScanner
 
 
