@@ -37,8 +37,8 @@ class NetScanner:
                     http_stream = \
                         HttpHandler.parse_http_stream(payload,
                                                       content_filter=b"json")
-                    for content_type, http_content in http_stream:
-                        if content_type and b"json" in content_type:
+                    for http_content in http_stream:
+                        if http_content:
                             try:
                                 json_dict = json.loads(http_content)
 

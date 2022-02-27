@@ -17,22 +17,23 @@ class HttpHandler:
 
             header, tail = packet.split(cls.HEADER_DELIMITER, maxsplit=1)
             content_len, content_type, encoding = cls._parse_header(header)
+            if content_filter and content_type and content_filter not in content_type:
+                break
 
             if content_len:
                 content = tail[:content_len]
                 packet = tail[content_len:]
-                if content_filter and content_type and content_filter in content_type:
-                    yield content_type, content
+                yield content
 
             elif encoding and b"chunked" in encoding:
-                packet = yield from cls._parse_chunked_transfer_stream(tail, content_type)
+                packet = yield from cls._parse_chunked_transfer_stream(tail)
 
             else:
                 # Empty http packet.
                 _, packet = packet.split(cls.HEADER_DELIMITER, maxsplit=1)
 
     @classmethod
-    def _parse_chunked_transfer_stream(cls, stream, content_type):
+    def _parse_chunked_transfer_stream(cls, stream):
         """Parse of chunked transfer encoding stream."""
         while stream:
             # Parse chunk size
@@ -44,7 +45,7 @@ class HttpHandler:
             chunk_size += 2  # chunk ends with carriage return
             content = stream[:chunk_size]
             stream = stream[chunk_size:]
-            yield content_type, content
+            yield content
 
         return None
 
