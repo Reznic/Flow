@@ -10,6 +10,12 @@ class HttpHandler:
 
     @classmethod
     def parse_http_stream(cls, packet, content_filter):
+        """Extract and return payload or payloads from http layer of packet.
+
+        packet: str. http layer to be parsed
+        content_filter: str. Return payload only for packets with content type
+         containing this substring.
+        """
         while packet and b"HTTP" in packet:
             if cls.HEADER_DELIMITER not in packet:
                 raise HttpParseError("HTTP packet does not "
