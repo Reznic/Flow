@@ -5,6 +5,12 @@ import pytest
 from tcp_handler import TCPHandler
 
 
+# Ip & Port of 3 example users
+A = ("1.1.1.1", 10)
+B = ("2.2.2.2", 20)
+C = ("3.3.3.3", 10)
+
+
 def tcp_packet(src, dst, flag, payload=None):
     """Build tcp packet with given parameters."""
     src_ip, src_port = src
@@ -18,11 +24,16 @@ def tcp_packet(src, dst, flag, payload=None):
 
 
 def test_session_aggregation():
-    """Test unification of fragmented data from multiple tcp session packets."""
+    """Test unification of fragmented data from multiple tcp session packets.
+
+    * Generate packets of an example tcp session between side A and B,
+      in which side A sends 3 payload strings to side B.
+    * Parse the packets with TCPHandler.
+    * Assert the parser returned single string,
+      equal to aggregation of all payloads.
+    """
     SESSIONS_NUM = 1
-    A = ("1.1.1.1", 10)
-    B = ("2.2.2.2", 20)
-    parser = TCPHandler(session_timeout=10)
+
     packets = [tcp_packet(A, B, "S"),
                tcp_packet(B, A, "SA"),
                tcp_packet(A, B, "A"),
@@ -36,9 +47,10 @@ def test_session_aggregation():
                tcp_packet(B, A, "FA"),
                tcp_packet(A, B, "A")]
 
+    parser = TCPHandler(session_timeout=10)
+
     data = [parser.handle_tcp_packet(packet) for packet in packets]
     data = list(filter(lambda x: x is not None, data))
-    print(data)
     assert len(data) == SESSIONS_NUM, \
         f"TCP parser detected {len(data)} sessions instead of {SESSIONS_NUM}."
 
@@ -53,9 +65,6 @@ def test_multiple_sessions():
     * Assert the creation of 2 payloads, matching the payloads of 2 sessions
     """
     SESSIONS_NUM = 2
-    A = ("1.1.1.1", 10)
-    B = ("2.2.2.2", 20)
-    C = ("3.3.3.3", 10)
     parser = TCPHandler(session_timeout=10)
     packets = [tcp_packet(A, B, "S"),
                tcp_packet(A, C, "S"),
@@ -96,13 +105,10 @@ def test_resources_cleanup():
     * sleep for 2.5 seconds - timeout for the unclosed session should expire.
     * Simulate and parse packets of normal tcp session, with terminating FIN packet.
     * Assert that all session streams freed from memory:
-        the first unclosed session, freed via the Timeout
-        the second closed due to session FIN packet arrival
+        the unclosed session, should be freed due to Timeout
+        the normal session due to closing (FIN packet)
     """
     TIMEOUT = 2  # seconds
-    A = ("1.1.1.1", 10)
-    B = ("2.2.2.2", 20)
-    C = ("3.3.3.3", 30)
 
     unclosed_session = [tcp_packet(A, B, "S"),
                         tcp_packet(B, A, "SA"),
