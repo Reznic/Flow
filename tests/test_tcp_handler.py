@@ -2,6 +2,7 @@ from scapy.all import *
 from time import sleep
 import pytest
 
+from utils import tcp_packet
 from tcp_handler import TCPHandler
 
 
@@ -9,18 +10,6 @@ from tcp_handler import TCPHandler
 A = ("1.1.1.1", 10)
 B = ("2.2.2.2", 20)
 C = ("3.3.3.3", 10)
-
-
-def tcp_packet(src, dst, flag, payload=None):
-    """Build tcp packet with given parameters."""
-    src_ip, src_port = src
-    dst_ip, dst_port = dst
-    packet = Ether() / IP(src=src_ip, dst=dst_ip) / TCP(sport=src_port,
-                                                        dport=dst_port,
-                                                        flags=flag)
-    if payload:
-        packet /= payload
-    return packet
 
 
 def test_session_aggregation():
